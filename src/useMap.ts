@@ -18,6 +18,7 @@ const useMap = <T extends object = any>(initialMap: T = {} as T): [T, Actions<T>
     () => ({
       set: <K extends keyof T>(key: K, value: T[K]) =>
         setMap((prev) => {
+          // Use Object.is for correct NaN handling
           if (Object.is(prev[key], value)) return prev;
           return {
             ...prev,
@@ -38,10 +39,8 @@ const useMap = <T extends object = any>(initialMap: T = {} as T): [T, Actions<T>
 
   const get = useCallback(<K extends keyof T>(key: K): T[K] => map[key], [map]);
 
-  const utils = useMemo<Actions<T>>(
-    () => ({ get, ...stableActions }),
-    [get, stableActions]
-  );
+  // Memoize the entire utils object to maintain stable reference
+  const utils = useMemo<Actions<T>>(() => ({ get, ...stableActions }), [get, stableActions]);
 
   return [map, utils];
 };

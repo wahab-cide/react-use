@@ -45,10 +45,8 @@ const useSet = <K>(initialSet = new Set<K>()): [Set<K>, Actions<K>] => {
 
   const has = useCallback((item: K) => set.has(item), [set]);
 
-  const utils = useMemo<Actions<K>>(
-    () => ({ has, ...stableActions }),
-    [has, stableActions]
-  );
+  // Memoize the entire utils object to maintain stable reference
+  const utils = useMemo<Actions<K>>(() => ({ has, ...stableActions }), [has, stableActions]);
 
   return [set, utils];
 };
