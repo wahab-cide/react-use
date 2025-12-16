@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export interface StableActions<T extends object> {
   set: <K extends keyof T>(key: K, value: T[K]) => void;
@@ -12,36 +12,41 @@ export interface Actions<T extends object> extends StableActions<T> {
 }
 
 const useMap = <T extends object = any>(initialMap: T = {} as T): [T, Actions<T>] => {
-  const [map, set] = useState<T>(initialMap);
+  const mapRef = useRef<T>({ ...initialMap });
+  const [, rerender] = useState(0);
 
   const stableActions = useMemo<StableActions<T>>(
     () => ({
-      set: (key, entry) => {
-        set((prevMap) => ({
-          ...prevMap,
+      set: <K extends keyof T>(key: K, entry: T[K]) => {
+        mapRef.current = {
+          ...mapRef.current,
           [key]: entry,
-        }));
+        };
+        rerender((c: number) => c + 1);
       },
       setAll: (newMap: T) => {
-        set(newMap);
+        mapRef.current = newMap;
+        rerender((c: number) => c + 1);
       },
-      remove: (key) => {
-        set((prevMap) => {
-          const { [key]: omit, ...rest } = prevMap;
-          return rest as T;
-        });
+      remove: <K extends keyof T>(key: K) => {
+        const { [key]: omit, ...rest } = mapRef.current;
+        mapRef.current = rest as T;
+        rerender((c: number) => c + 1);
       },
-      reset: () => set(initialMap),
+      reset: () => {
+        mapRef.current = { ...initialMap };
+        rerender((c: number) => c + 1);
+      },
     }),
-    [set]
+    []
   );
 
   const utils = {
-    get: useCallback((key) => map[key], [map]),
+    get: useCallback((key: keyof T) => mapRef.current[key], []),
     ...stableActions,
   } as Actions<T>;
 
-  return [map, utils];
+  return [{ ...mapRef.current }, utils];
 };
 
 export default useMap;

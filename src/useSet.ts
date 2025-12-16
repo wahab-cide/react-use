@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export interface StableActions<K> {
   add: (key: K) => void;
@@ -13,28 +13,49 @@ export interface Actions<K> extends StableActions<K> {
 }
 
 const useSet = <K>(initialSet = new Set<K>()): [Set<K>, Actions<K>] => {
-  const [set, setSet] = useState(initialSet);
+  const setRef = useRef(new Set(initialSet));
+  const [, rerender] = useState(0);
 
   const stableActions = useMemo<StableActions<K>>(() => {
-    const add = (item: K) => setSet((prevSet) => new Set([...Array.from(prevSet), item]));
-    const remove = (item: K) =>
-      setSet((prevSet) => new Set(Array.from(prevSet).filter((i) => i !== item)));
-    const toggle = (item: K) =>
-      setSet((prevSet) =>
-        prevSet.has(item)
-          ? new Set(Array.from(prevSet).filter((i) => i !== item))
-          : new Set([...Array.from(prevSet), item])
-      );
+    const add = (item: K) => {
+      if (!setRef.current.has(item)) {
+        setRef.current.add(item);
+        rerender((c: number) => c + 1);
+      }
+    };
+    const remove = (item: K) => {
+      if (setRef.current.delete(item)) {
+        rerender((c: number) => c + 1);
+      }
+    };
+    const toggle = (item: K) => {
+      if (setRef.current.has(item)) {
+        setRef.current.delete(item);
+      } else {
+        setRef.current.add(item);
+      }
+      rerender((c: number) => c + 1);
+    };
+    const reset = () => {
+      setRef.current = new Set(initialSet);
+      rerender((c: number) => c + 1);
+    };
+    const clear = () => {
+      if (setRef.current.size > 0) {
+        setRef.current.clear();
+        rerender((c: number) => c + 1);
+      }
+    };
 
-    return { add, remove, toggle, reset: () => setSet(initialSet), clear: () => setSet(new Set()) };
-  }, [setSet]);
+    return { add, remove, toggle, reset, clear };
+  }, []);
 
   const utils = {
-    has: useCallback((item) => set.has(item), [set]),
+    has: useCallback((item: K) => setRef.current.has(item), []),
     ...stableActions,
   } as Actions<K>;
 
-  return [set, utils];
+  return [new Set(setRef.current), utils];
 };
 
 export default useSet;
