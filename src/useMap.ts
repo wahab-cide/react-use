@@ -12,13 +12,13 @@ export interface Actions<T extends object> extends StableActions<T> {
 }
 
 const useMap = <T extends object = any>(initialMap: T = {} as T): [T, Actions<T>] => {
-  const [map, setMap] = useState<T>(initialMap);
+  const [map, setMap] = useState<T>(() => ({ ...initialMap }));
 
   const stableActions = useMemo<StableActions<T>>(
     () => ({
       set: <K extends keyof T>(key: K, value: T[K]) =>
         setMap((prev) => {
-          if (prev[key] === value) return prev;
+          if (Object.is(prev[key], value)) return prev;
           return {
             ...prev,
             [key]: value,
@@ -31,15 +31,17 @@ const useMap = <T extends object = any>(initialMap: T = {} as T): [T, Actions<T>
           const { [key]: omit, ...rest } = prev;
           return rest as T;
         }),
-      reset: () => setMap(initialMap),
+      reset: () => setMap({ ...initialMap }),
     }),
     [initialMap]
   );
 
-  const utils = {
-    get: useCallback((key: keyof T) => map[key], [map]),
-    ...stableActions,
-  } as Actions<T>;
+  const get = useCallback(<K extends keyof T>(key: K): T[K] => map[key], [map]);
+
+  const utils = useMemo<Actions<T>>(
+    () => ({ get, ...stableActions }),
+    [get, stableActions]
+  );
 
   return [map, utils];
 };
